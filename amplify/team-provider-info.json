@@ -14,6 +14,9 @@
     "categories": {
       "auth": {
         "notelistb2bbdb77": {}
+      },
+      "api": {
+        "notelist": {}
       }
     }
   }
