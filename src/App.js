@@ -7,59 +7,110 @@ import {
   Flex,
   Heading,
   Text,
-  // TextField,
   View,
   withAuthenticator,
   Image,
+  Table,
+  TableRow,
+  TableCell,
+  TableHead,
+  TableBody,
+  TextField,
 } from "@aws-amplify/ui-react";
 import { listNotes } from "./graphql/queries";
 import {
   createNote as createNoteMutation,
   deleteNote as deleteNoteMutation,
 } from "./graphql/mutations";
-// import { storage } from "aws-amplify/storage";
 
 const client = generateClient();
 
 const App = ({ signOut }) => {
   const [notes, setNotes] = useState([]);
 
-  useEffect(() => {
-    fetchNotes();
-  }, []);
-
+  // Fonction pour récupérer les notes
   async function fetchNotes() {
-    const apiData = await client.graphql({ query: listNotes });
-    const notesFromAPI = apiData.data.listNotes.items;
-    await Promise.all(
-      notesFromAPI.map(async (note) => {
-        if (note.image) {
-          const url = await Storage.get(note.name);
-          note.image = url;
-        }
-        return note;
-      })
-    );
-    setNotes(notesFromAPI);
+    try {
+      const apiData = await client.graphql({ query: listNotes });
+      console.log("Notes :", apiData);
+      
+      if (!apiData || !apiData.data || !apiData.data.listNotes) {
+        console.error("Les données reçues de l'API ne sont pas valides :", apiData);
+        return;
+      }
+      const notesFromAPI = apiData.data.listNotes.items || [];
+      console.log("Notes reçues de l'API :", notesFromAPI);
+
+      const notesWithImages = await Promise.all(
+        notesFromAPI.map(async (note) => {
+          if (note.image) {
+            try {
+              const url = await Storage.get(note.image);
+              note.image = url;
+              console.log(`Image récupérée pour la note ${note.name} : ${url}`);
+            } catch (error) {
+              console.error(`Erreur lors de la récupération de l'image pour ${note.name} :`, error);
+            }
+          }
+          return note;
+        })
+      );
+
+      setNotes(notesWithImages);
+    } catch (error) {
+      console.error("Erreur lors de la récupération des notes :", error);
+    }
   }
+  
 
   async function createNote(event) {
     event.preventDefault();
-    const form = new FormData(event.target);
-    const image = form.get("image");
-    const data = {
-      name: form.get("name"),
-      description: form.get("description"),
-      image: image.name,
-    };
-    if (!!data.image) await Storage.put(data.name, image);
-    await client.graphql({
-      query: createNoteMutation,
-      variables: { input: data },
-    });
-    fetchNotes();
-    event.target.reset();
+    try {
+      const form = new FormData(event.target);
+      const image = form.get("image");
+      
+      // Vérification si le nom et la description sont présents
+      const name = form.get("name");
+      const description = form.get("description");
+      if (!name || !description) {
+        console.error("Le nom et la description sont requis");
+        return;
+      }
+  
+      const data = {
+        name: name,
+        description: description,
+        image: image ? image.name : "", // Vérification de l'image
+      };
+  
+      console.log("Données de la note à créer :", data);
+  
+      // Gestion du stockage de l'image
+      if (image && image.name) {
+        await Storage.put(data.name, image);
+        console.log(`Image ${image.name} stockée avec succès.`);
+      }
+  
+      // Appel à l'API GraphQL pour créer la note
+      const response = await client.graphql({
+        query: createNoteMutation,
+        variables: { input: data },
+      });
+  
+      console.log("Réponse de l'API lors de la création :", response);
+  
+      // Rafraîchissement de la liste des notes
+      fetchNotes();
+      event.target.reset();
+    } catch (error) {
+      console.error("Erreur lors de la création de la note :", error);
+    }
   }
+  
+    // Utilisation de useEffect pour récupérer les notes au chargement du composant
+    useEffect(() => {
+      fetchNotes();
+    }, []);
 
   async function deleteNote({ id, name }) {
     const newNotes = notes.filter((note) => note.id !== id);
@@ -72,68 +123,66 @@ const App = ({ signOut }) => {
   }
 
   return (
-    <View className="App">
-      <Heading level={1}>My Notes App</Heading>
-      <View
-        margin="3rem 0"
-        onSubmit={createNote}
-        name="image"
-        as="input"
-        type="file"
-        style={{ alignSelf: "end" }}
-      >
-        <form onSubmit={createNote} style={{ margin: "3rem 0" }}>
-          {/* <Flex direction="row" justifyContent="center">
-            <TextField
-              name="name"
-              placeholder="Note Name"
-              label="Note Name"
-              labelHidden
-              variation="quiet"
-              required
-            />
-            <TextField
-              name="description"
-              placeholder="Note Description"
-              label="Note Description"
-              labelHidden
-              variation="quiet"
-              required
-            />
-            <input name="image" type="file" style={{ alignSelf: "end" }} />
-            <Button type="submit" variation="primary">
-              Create Note
-            </Button>
-          </Flex> */}
-        </form>
-      </View>
+    <View className="App" style={{ maxWidth: "960px", margin: "0 auto" }}>
+      <Heading level={1} style={{ textAlign: "center" , marginBottom: "16px"}}>My Notes App</Heading>
+      <form onSubmit={createNote} style={{ marginBottom: "20px", textAlign: "center" , display: "flex", justifyContent: "center"}}>
+        <Flex direction="column" alignItems="flex-start">
+          <TextField
+            name="name"
+            placeholder="Note Name"
+            required
+            style={{ marginBottom: "10px" }}
+          />
+          <TextField
+            name="description"
+            placeholder="Note Description"
+            required
+            style={{ marginBottom: "10px" }}
+          />
+          <input type="file" name="image" />
+          <Button type="submit" variation="primary">
+            Create Note
+          </Button>
+        </Flex>
+      </form>
+      
       <Heading level={2}>Current Notes</Heading>
-      <View margin="3rem 0">
-        {notes.map((note) => (
-          <Flex
-            key={note.id || note.name}
-            direction="row"
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Text as="strong" fontWeight={700}>
-              {note.name}
-            </Text>
-            <Text as="span">{note.description}</Text>
-            {note.image && (
-              <Image
-                src={note.image}
-                alt={`visual aid for ${notes.name}`}
-                style={{ width: 400 }}
-              />
-            )}
-            <Button variation="link" onClick={() => deleteNote(note)}>
-              Delete note
-            </Button>
-          </Flex>
-        ))}
-      </View>
-      <Button onClick={signOut}>Sign Out</Button>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Name</TableCell>
+            <TableCell>Description</TableCell>
+            <TableCell>Image</TableCell>
+            <TableCell>Actions</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {notes.map((note) => (
+            <TableRow key={note.id || note.name}>
+              <TableCell>{note.name}</TableCell>
+              <TableCell>{note.description}</TableCell>
+              <TableCell>
+                {note.image && (
+                  <Image
+                    src={note.image}
+                    alt={`visual aid for ${note.name}`}
+                    style={{ width: 100 }}
+                  />
+                )}
+              </TableCell>
+              <TableCell>
+                <Button variation="link" onClick={() => deleteNote(note)}>
+                  Delete
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      
+      <Button onClick={signOut} style={{ marginTop: "20px" }}>
+        Sign Out
+      </Button>
     </View>
   );
 };

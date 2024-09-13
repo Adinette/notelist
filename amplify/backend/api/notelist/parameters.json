@@ -1,6 +1,0 @@
-{
-  "AppSyncApiName": "notelist",
-  "DynamoDBBillingMode": "PAY_PER_REQUEST",
-  "DynamoDBEnableServerSideEncryption": false,
-  "AuthModeLastUpdated": "2024-09-13T00:08:16.924Z"
-}
