@@ -32,9 +32,12 @@ const App = ({ signOut }) => {
     try {
       const apiData = await client.graphql({ query: listTodos });
       console.log("Notes :", apiData);
-      
+
       if (!apiData || !apiData.data || !apiData.data.listTodos) {
-        console.error("Les données reçues de l'API ne sont pas valides :", apiData);
+        console.error(
+          "Les données reçues de l'API ne sont pas valides :",
+          apiData
+        );
         return;
       }
       const notesFromAPI = apiData.data.listTodos.items || [];
@@ -48,7 +51,10 @@ const App = ({ signOut }) => {
               note.image = url;
               console.log(`Image récupérée pour la note ${note.name} : ${url}`);
             } catch (error) {
-              console.error(`Erreur lors de la récupération de l'image pour ${note.name} :`, error);
+              console.error(
+                `Erreur lors de la récupération de l'image pour ${note.name} :`,
+                error
+              );
             }
           }
           return note;
@@ -60,14 +66,13 @@ const App = ({ signOut }) => {
       console.error("Erreur lors de la récupération des notes :", error);
     }
   }
-  
 
   async function createTodo(event) {
     event.preventDefault();
     try {
       const form = new FormData(event.target);
       const image = form.get("image");
-      
+
       // Vérification si le nom et la description sont présents
       const name = form.get("name");
       const description = form.get("description");
@@ -75,29 +80,29 @@ const App = ({ signOut }) => {
         console.error("Le nom et la description sont requis");
         return;
       }
-  
+
       const data = {
         name: name,
         description: description,
         image: image ? image.name : "", // Vérification de l'image
       };
-  
+
       console.log("Données de la note à créer :", data);
-  
+
       // Gestion du stockage de l'image
       if (image && image.name) {
         await Storage.put(data.name, image);
         console.log(`Image ${image.name} stockée avec succès.`);
       }
-  
+
       // Appel à l'API GraphQL pour créer la note
       const response = await client.graphql({
         query: createTodoMutation,
         variables: { input: data },
       });
-  
+
       console.log("Réponse de l'API lors de la création :", response);
-  
+
       // Rafraîchissement de la liste des notes
       fetchNotes();
       event.target.reset();
@@ -105,11 +110,11 @@ const App = ({ signOut }) => {
       console.error("Erreur lors de la création de la note :", error);
     }
   }
-  
-    // Utilisation de useEffect pour récupérer les notes au chargement du composant
-    useEffect(() => {
-      fetchNotes();
-    }, []);
+
+  // Utilisation de useEffect pour récupérer les notes au chargement du composant
+  useEffect(() => {
+    fetchNotes();
+  }, []);
 
   async function deleteTodo({ id, name }) {
     const newNotes = notes.filter((note) => note.id !== id);
@@ -123,8 +128,18 @@ const App = ({ signOut }) => {
 
   return (
     <View className="App" style={{ maxWidth: "960px", margin: "0 auto" }}>
-      <Heading level={1} style={{ textAlign: "center" , marginBottom: "16px"}}>My Notes App</Heading>
-      <form onSubmit={createTodo} style={{ marginBottom: "20px", textAlign: "center" , display: "flex", justifyContent: "center"}}>
+      <Heading level={1} style={{ textAlign: "center", marginBottom: "16px" }}>
+        My Notes App
+      </Heading>
+      <form
+        onSubmit={createTodo}
+        style={{
+          marginBottom: "20px",
+          textAlign: "center",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
         <Flex direction="column" alignItems="flex-start">
           <TextField
             name="name"
@@ -144,7 +159,7 @@ const App = ({ signOut }) => {
           </Button>
         </Flex>
       </form>
-      
+
       <Heading level={2}>Current Notes</Heading>
       <Table>
         <TableHead>
@@ -178,7 +193,7 @@ const App = ({ signOut }) => {
           ))}
         </TableBody>
       </Table>
-      
+
       <Button onClick={signOut} style={{ marginTop: "20px" }}>
         Sign Out
       </Button>
