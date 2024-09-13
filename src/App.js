@@ -81,7 +81,7 @@ const App = ({ signOut }) => {
         description: description,
         image: image ? image.name : "", // Vérification de l'image
       };
-  
+      
       console.log("Données de la note à créer :", data);
   
       // Gestion du stockage de l'image
@@ -93,7 +93,7 @@ const App = ({ signOut }) => {
       // Appel à l'API GraphQL pour créer la note
       const response = await client.graphql({
         query: createTodoMutation,
-        variables: { input: data },
+        input: data ,
       });
   
       console.log("Réponse de l'API lors de la création :", response);
