@@ -51,10 +51,7 @@ const App = ({ signOut }) => {
           try {
             const url = await Storage(note.image);
             return { ...note, image: url };
-          } catch (error) {
-            // console.error(`Erreur lors de la récupération de l'image pour ${note.name} :`, error);
-            // return note; // Retourner la note sans image en cas d'erreur
-          }
+          } catch (error) {}
         }
         return note;
       };
@@ -67,7 +64,7 @@ const App = ({ signOut }) => {
       // Mise à jour de l'état avec les notes complètes
       setNotes(notesWithImages);
     } catch (error) {
-      console.error("Erreur lors de la récupération des notes :", error);
+      console.error(error);
     }
   }
 
@@ -81,7 +78,6 @@ const App = ({ signOut }) => {
       const name = form.get("name");
       const description = form.get("description");
       if (!name || !description) {
-        console.error("Le nom et la description sont requis");
         return;
       }
 
@@ -91,12 +87,11 @@ const App = ({ signOut }) => {
         image: image ? image.name : "", // Vérification de l'image
       };
 
-      console.log("Données de la note à créer :", data);
+      console.log(data);
 
       // Gestion du stockage de l'image
       try {
         const result = await Storage(data.name, image);
-        console.log(`Image ${image.name} stockée avec succès.`);
         data.image = result.key;
       } catch (error) {}
 
@@ -108,13 +103,13 @@ const App = ({ signOut }) => {
         },
       });
 
-      console.log("Réponse de l'API lors de la création :", response);
+      console.log(response);
 
       // Rafraîchissement de la liste des notes
       fetchNotes();
       event.target.reset();
     } catch (error) {
-      console.error("Erreur lors de la création de la note :", error);
+      console.error(error);
     }
   }
 
@@ -128,7 +123,7 @@ const App = ({ signOut }) => {
     setNotes(newNotes);
     try {
       const result = await Storage(name);
-      console.log(`Image ${name} supprimée avec succès.`, result);
+      console.log(result);
     } catch (error) {}
     await client.graphql({
       query: deleteTodoMutation,
@@ -137,76 +132,107 @@ const App = ({ signOut }) => {
   }
 
   return (
-    <View className="App" style={{ maxWidth: "960px", margin: "0 auto" }}>
-      <Heading level={1} style={{ textAlign: "center", marginBottom: "16px" }}>
-        My Notes App
-      </Heading>
-      <form
-        onSubmit={createTodo}
-        style={{
-          marginBottom: "20px",
-          textAlign: "center",
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
-        <Flex direction="column" alignItems="flex-start">
-          <TextField
-            name="name"
-            placeholder="Note Name"
-            required
-            style={{ marginBottom: "10px" }}
-          />
-          <TextField
-            name="description"
-            placeholder="Note Description"
-            required
-            style={{ marginBottom: "10px" }}
-          />
-          <TextField name="image" placeholder="" type="file" />
-          <Button type="submit" variation="primary">
-            Create Note
-          </Button>
-        </Flex>
-      </form>
+    <View
+      className="App"
+      style={{
+        margin: "0 auto",
+        padding: "48px 0",
+        backgroundColor: "beige",
+      }}
+    >
+      <div>
+        <div style={{ margin: "24px 0" }}>
+          <Heading
+            level={1}
+            style={{
+              textAlign: "center",
+              marginBottom: "16px",
+              fontWeight: 600,
+              textDecoration: "underline",
+              color: "green",
+            }}
+          >
+            My Notes App
+          </Heading>
+          <form
+            onSubmit={createTodo}
+            style={{
+              marginBottom: "20px",
+              textAlign: "center",
+            }}
+          >
+            <Flex style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+              <TextField
+                name="name"
+                placeholder="Note Name"
+                required
+                style={{ textAlign: "start" }}
+              />
+              <TextField
+                name="description"
+                placeholder="Note Description"
+                required
+                style={{ textAlign: "start" }}
+              />
+              <TextField name="image" placeholder="" type="file" />
+            </Flex>
+            <Button type="submit" variation="primary" padding={"12px 24px"}>
+                Create Note
+              </Button>
+          </form>
+        </div>
 
-      <Heading level={2}>Current Notes</Heading>
-      <Table>
-        <TableHead>
-          <TableRow>
-            <TableCell>Name</TableCell>
-            <TableCell>Description</TableCell>
-            <TableCell>Image</TableCell>
-            <TableCell>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {notes.map((note) => (
-            <TableRow key={note.id || note.name}>
-              <TableCell>{note.name}</TableCell>
-              <TableCell>{note.description}</TableCell>
-              <TableCell>
-                {note.image ? (
-                  <img
-                    src={note.image}
-                    alt={note.name}
-                    style={{ width: "100px", height: "auto" }} // Ajustez les dimensions selon vos besoins
-                  />
-                ) : (
-                  <span>Aucune image</span> // Message ou élément alternatif si aucune image n'est disponible
-                )}
-              </TableCell>
-              <TableCell>
-                <Button variation="link" onClick={() => deleteTodo(note)}>
-                  Delete
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+        <div>
+          <Heading
+            level={2}
+            style={{
+              fontWeight: 600,
+              textDecoration: "underline",
+              color: "green",
+              marginBottom: "24px",
 
-      <Button onClick={signOut} style={{ marginTop: "20px" }}>
+            }}
+          >
+            Current Notes
+          </Heading>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Description</TableCell>
+                <TableCell>Image</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {notes.map((note) => (
+                <TableRow key={note.id || note.name}>
+                  <TableCell>{note.name}</TableCell>
+                  <TableCell>{note.description}</TableCell>
+                  <TableCell>
+                    {note.image ? (
+                      <img
+                        src={note.image}
+                        alt={note.name}
+                        style={{ width: "100px", height: "auto" }}
+                      />
+                    ) : (
+                      <span>Aucune image</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Button variation="link" onClick={() => deleteTodo(note)}>
+                      Delete
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      <Button onClick={signOut} style={{ marginTop: "24px" }} variation="primary" padding={"12px 24px"}>
         Sign Out
       </Button>
     </View>
