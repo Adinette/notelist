@@ -7,6 +7,6 @@ input AMPLIFY {
 type Todo @model {
   id: ID!
   name: String!
-  description: String
+  description: String!
   image: String
 }
