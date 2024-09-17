@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import "./App.css";
 import "@aws-amplify/ui-react/styles.css";
 import { generateClient } from "aws-amplify/api";
-import { getProperties } from "aws-amplify/storage";
 import {
   Button,
   Flex,
@@ -20,7 +19,9 @@ import { listTodos } from "./graphql/queries";
 import {
   createTodo as createTodoMutation,
   deleteTodo as deleteTodoMutation,
+  updateTodo as updateTodoMutation,
 } from "./graphql/mutations";
+import { getProperties } from "aws-amplify/storage";
 
 const client = generateClient();
 
@@ -28,6 +29,7 @@ const Storage = getProperties();
 
 const App = ({ signOut }) => {
   const [notes, setNotes] = useState([]);
+  const [editNotes , setEditNotes]= useState([]);
 
   // Fonction pour récupérer les notes
   async function fetchNotes() {
@@ -73,10 +75,9 @@ const App = ({ signOut }) => {
     try {
       const form = new FormData(event.target);
       const image = form.get("image");
-
-      // Vérification si le nom et la description sont présents
       const name = form.get("name");
       const description = form.get("description");
+
       if (!name || !description) {
         return;
       }
@@ -84,17 +85,29 @@ const App = ({ signOut }) => {
       const data = {
         name: name,
         description: description,
-        image: image ? image.name : "", // Vérification de l'image
+        image: image.name,
       };
-
       console.log(data);
 
       // Gestion du stockage de l'image
-      try {
-        const result = await Storage(data.name, image);
-        data.image = result.key;
-      } catch (error) {}
+      if (image) {
+        try {
+          // Utilisation de Storage.put() pour uploader l'image dans S3
+          const result = await getProperties(data.name, image, {
+            path: "notes", // Assurez-vous de définir le type de contenu correct (ex: 'image/png')
+          });
+        console.log("Image uploadée avec succès :", result);
 
+        // Utilisation de Storage.get() pour récupérer l'URL publique de l'image stockée
+        const imageUrl = await Storage.get(result.key);
+        console.log("URL de l'image récupérée :", imageUrl);
+
+        data.image = imageUrl; // Stocker l'URL publique de l'image dans les données
+        // const result = await Storage(data.name, image);
+        // console.log(result);
+        // data.image = result.key;
+      } catch (error) {}
+    }
       // Appel à l'API GraphQL pour créer la note
       const response = await client.graphql({
         query: createTodoMutation,
@@ -114,9 +127,59 @@ const App = ({ signOut }) => {
   }
 
   // Utilisation de useEffect pour récupérer les notes au chargement du composant
+
   useEffect(() => {
     fetchNotes();
   }, []);
+
+  async function updateTodo(event) {
+    event.preventDefault();
+  
+    const form = new FormData(event.target);
+    const updatedName = form.get("name");
+    const updatedDescription = form.get("description");
+    const updatedImage = form.get("image");
+  
+    if (!updatedName || !updatedDescription) {
+      console.error("Le nom et la description sont obligatoires.");
+      return;
+    }
+  
+    const updatedData = {
+      id: editNotes.id, // Utiliser l'ID de la note en cours d'édition
+      name: updatedName,
+      description: updatedDescription,
+    };
+  
+    if (updatedImage && updatedImage.name) {
+      try {
+        const result = await Storage.put(`${Date.now()}_${updatedImage.name}`, updatedImage, {
+          contentType: updatedImage.type,
+          level: "public",
+        });
+        const imageUrl = await Storage.get(result.key, { level: "public" });
+        updatedData.image = imageUrl;
+      } catch (error) {
+        console.error("Erreur lors de l'upload de l'image :", error);
+        return;
+      }
+    }
+  
+    try {
+      await client.graphql({
+        query: updateTodoMutation, // Changez ici pour la mutation update
+        variables: {
+          input: updatedData,
+        },
+      });
+      fetchNotes(); // Recharge les notes
+      setEditNotes(null); // Remet à zéro l'état d'édition
+      event.target.reset(); // Réinitialise le formulaire
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour de la note :", error);
+    }
+  }
+  
 
   async function deleteTodo({ id, name }) {
     const newNotes = notes.filter((note) => note.id !== id);
@@ -155,30 +218,42 @@ const App = ({ signOut }) => {
             My Notes App
           </Heading>
           <form
-            onSubmit={createTodo}
+            // onSubmit={createTodo}
+            onSubmit={editNotes ? updateTodo : createTodo}
             style={{
               marginBottom: "20px",
               textAlign: "center",
             }}
           >
-            <Flex style={{ display: "flex", justifyContent: "center", marginBottom: "24px" }}>
+            <Flex
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginBottom: "24px",
+              }}
+            >
               <TextField
                 name="name"
                 placeholder="Note Name"
+                defaultValue={editNotes ? editNotes.name : ""} // Pré-rempli si en édition
                 required
                 style={{ textAlign: "start" }}
               />
               <TextField
                 name="description"
                 placeholder="Note Description"
+                defaultValue={editNotes ? editNotes.description : ""} // Pré-rempli si en édition
                 required
                 style={{ textAlign: "start" }}
               />
               <TextField name="image" placeholder="" type="file" />
             </Flex>
+            {/* <Button type="submit" variation="primary" padding={"12px 24px"}>
+              Create Note
+            </Button> */}
             <Button type="submit" variation="primary" padding={"12px 24px"}>
-                Create Note
-              </Button>
+    {editNotes ? "Update Note" : "Create Note"} {/* Change le texte du bouton */}
+  </Button>
           </form>
         </div>
 
@@ -190,7 +265,6 @@ const App = ({ signOut }) => {
               textDecoration: "underline",
               color: "green",
               marginBottom: "24px",
-
             }}
           >
             Current Notes
@@ -221,6 +295,12 @@ const App = ({ signOut }) => {
                     )}
                   </TableCell>
                   <TableCell>
+                  <Button
+          variation="link"
+          onClick={() => setEditNotes(note)} // Prépare la note pour l'édition
+        >
+          Edit
+        </Button>
                     <Button variation="link" onClick={() => deleteTodo(note)}>
                       Delete
                     </Button>
@@ -232,7 +312,12 @@ const App = ({ signOut }) => {
         </div>
       </div>
 
-      <Button onClick={signOut} style={{ marginTop: "24px" }} variation="primary" padding={"12px 24px"}>
+      <Button
+        onClick={signOut}
+        style={{ marginTop: "24px" }}
+        variation="primary"
+        padding={"12px 24px"}
+      >
         Sign Out
       </Button>
     </View>
